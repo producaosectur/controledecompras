@@ -21,23 +21,15 @@
 
   <main class="container">
     
-    <!-- Dashboard KPIs -->
+    <!-- Dashboard KPIs (Reduzido para 2 Cards Diretos ao Ponto) -->
     <section class="kpi-grid">
       <div class="kpi-card">
-        <h3>Total de Solicitações</h3>
-        <p id="kpi-total-qtd">0</p>
+        <h3>Solicitações (Concluídas / Total)</h3>
+        <p id="kpi-total-qtd">0 / 0</p>
       </div>
       <div class="kpi-card">
         <h3>Valor Total Exibido</h3>
         <p id="kpi-total-valor">R$ 0,00</p>
-      </div>
-      <div class="kpi-card status-green-card">
-        <h3>Concluídos (Almoxarifado)</h3>
-        <p id="kpi-almox">0</p>
-      </div>
-      <div class="kpi-card status-blue-card">
-        <h3>Concluídos (Contabilidade)</h3>
-        <p id="kpi-contab">0</p>
       </div>
     </section>
 
@@ -45,6 +37,10 @@
     <section class="toolbar">
       <input type="text" id="search-input" placeholder="Buscar por Protocolo, Descritivo, Req, Ficha, Empenho, NF...">
       
+      <select id="filter-ano">
+        <option value="">Todos os Anos</option>
+      </select>
+
       <select id="filter-local">
         <option value="">Todos os Locais</option>
       </select>
@@ -63,6 +59,7 @@
       </select>
 
       <button class="btn btn-filter" onclick="applyFilters()">🔍 Filtrar</button>
+      <button class="btn btn-secondary" onclick="exportToExcel()">📊 Exportar Excel</button>
       <button class="btn btn-primary" onclick="openModal()">+ Nova Solicitação</button>
     </section>
 
@@ -238,6 +235,8 @@
     </div>
   </div>
 
+  <!-- Biblioteca para exportação de planilhas (.xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

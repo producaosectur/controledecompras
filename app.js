@@ -4,7 +4,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxVg5kQYBcy-1jtGN52ooXf
 let purchasesData = [];
 let fichasMap = {}, empenhosMap = {}, notasMap = {}, liquidacoesMap = {};
 let anexosReqMap = {}, anexosAfMap = {}, anexosNfMap = {}, anexosNlMap = {};
-let cadLocais = [], cadEventos = [];
+let cadLocais = [], cadEventos = [], cadAnos = [];
 
 let currentTags = { ficha: [], empenho: [], nf: [], nl: [] };
 let currentFiles = { req: [], af: [], nf: [], nl: [] };
@@ -24,6 +24,27 @@ function parseValorNum(val) {
 function parseBool(val) {
   if (typeof val === 'boolean') return val;
   return String(val).toLowerCase() === 'true';
+}
+
+function formatDateBR(val) {
+  if (!val) return '-';
+  let str = val.toString().trim();
+  if (str.includes('T')) str = str.split('T')[0];
+  if (str.includes('-')) {
+    let parts = str.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return str;
+}
+
+function extractYearFromItem(item) {
+  let dateStr = item.DATA_PROCESSO || item.ENTREGA || '';
+  if (dateStr) {
+    let cleanStr = dateStr.toString().split('T')[0];
+    if (cleanStr.includes('-')) return cleanStr.split('-')[0];
+    if (cleanStr.includes('/')) return cleanStr.split('/')[2];
+  }
+  return new Date().getFullYear().toString();
 }
 
 function calculatePaymentForecast(entregaStr) {
@@ -173,6 +194,8 @@ async function loadData() {
         afList.push({ name: 'Anexo AF/OS', url: item.ANEXO_AF_OS });
       }
 
+      let yearExtracted = extractYearFromItem(item);
+
       return {
         id: solId,
         protocolo: item.PROTOCOLO || '',
@@ -188,6 +211,7 @@ async function loadData() {
         af: item.AF_OS || '',
         entrega: item.ENTREGA || '',
         dataProcesso: item.DATA_PROCESSO || '',
+        ano: yearExtracted,
         almox: parseBool(item.CHK_ALMOXARIFADO),
         contab: parseBool(item.CHK_CONTABILIDADE),
         cancelado: parseBool(item.CHK_CANCELADO),
@@ -200,6 +224,10 @@ async function loadData() {
 
     cadLocais = [...new Set([...rawLocais, ...purchasesData.map(d => d.local).filter(Boolean)])].sort();
     cadEventos = [...new Set([...rawEventos, ...purchasesData.map(d => d.evento).filter(Boolean)])].sort();
+    
+    // Lista os anos encontrados e garante o ano corrente na lista
+    const currentYearStr = new Date().getFullYear().toString();
+    cadAnos = [...new Set([currentYearStr, ...purchasesData.map(d => d.ano).filter(Boolean)])].sort((a,b) => b - a);
 
     populateFilterOptions();
     applyFilters();
@@ -212,26 +240,41 @@ async function loadData() {
   }
 }
 
+// ATUALIZAÇÃO DOS KPIS COM FORMATO (CONCLUÍDAS / TOTAL)
 function updateKPIs(data) {
   const totalQtdEl = document.getElementById('kpi-total-qtd');
   const totalValorEl = document.getElementById('kpi-total-valor');
-  const almoxEl = document.getElementById('kpi-almox');
-  const contabEl = document.getElementById('kpi-contab');
 
-  if (totalQtdEl) totalQtdEl.innerText = data.length;
+  // Considera concluída se estiver no Almoxarifado ou na Contabilidade (e não cancelada)
+  const concluidos = data.filter(i => (i.almox || i.contab) && !i.cancelado).length;
+  const total = data.length;
+
+  if (totalQtdEl) {
+    totalQtdEl.innerText = `${concluidos} / ${total}`;
+  }
+
   if (totalValorEl) {
     let totalValor = data.reduce((sum, item) => sum + (item.cancelado ? 0 : item.valor), 0);
     totalValorEl.innerText = totalValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
-  if (almoxEl) almoxEl.innerText = data.filter(i => i.almox && !i.cancelado).length;
-  if (contabEl) contabEl.innerText = data.filter(i => i.contab && !i.cancelado).length;
 }
 
 function populateFilterOptions() {
+  const filterAno = document.getElementById('filter-ano');
   const filterLocal = document.getElementById('filter-local');
   const filterEvento = document.getElementById('filter-evento');
   const formLocal = document.getElementById('form-local');
   const formEvento = document.getElementById('form-evento');
+
+  const currentYearStr = new Date().getFullYear().toString();
+
+  if (filterAno) {
+    filterAno.innerHTML = '<option value="">Todos os Anos</option>';
+    cadAnos.forEach(ano => {
+      let selected = ano === currentYearStr ? 'selected' : '';
+      filterAno.innerHTML += `<option value="${ano}" ${selected}>Ano ${ano}</option>`;
+    });
+  }
 
   if (filterLocal) filterLocal.innerHTML = '<option value="">Todos os Locais</option>';
   if (filterEvento) filterEvento.innerHTML = '<option value="">Todos os Eventos</option>';
@@ -414,10 +457,12 @@ function setupEventListeners() {
     });
   }
 
+  const filterAno = document.getElementById('filter-ano');
   const filterLocal = document.getElementById('filter-local');
   const filterEvento = document.getElementById('filter-evento');
   const filterStatus = document.getElementById('filter-status');
 
+  if (filterAno) filterAno.addEventListener('change', applyFilters);
   if (filterLocal) filterLocal.addEventListener('change', applyFilters);
   if (filterEvento) filterEvento.addEventListener('change', applyFilters);
   if (filterStatus) filterStatus.addEventListener('change', applyFilters);
@@ -443,13 +488,15 @@ function updatePrevisaoBanner(entregaVal) {
   }
 }
 
-function applyFilters() {
+function getFilteredData() {
   const searchInput = document.getElementById('search-input');
+  const filterAno = document.getElementById('filter-ano');
   const filterLocal = document.getElementById('filter-local');
   const filterEvento = document.getElementById('filter-evento');
   const filterStatus = document.getElementById('filter-status');
 
   const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const ano = filterAno ? filterAno.value : '';
   const local = filterLocal ? filterLocal.value : '';
   const evento = filterEvento ? filterEvento.value : '';
   const status = filterStatus ? filterStatus.value : '';
@@ -457,7 +504,7 @@ function applyFilters() {
   const today = new Date();
   const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
-  let filtered = purchasesData.filter(item => {
+  return purchasesData.filter(item => {
     let strFichas = item.fichas.join(' ').toLowerCase();
     let strEmpenhos = item.empenhos.join(' ').toLowerCase();
     let strNotas = item.notas.join(' ').toLowerCase();
@@ -475,6 +522,7 @@ function applyFilters() {
                       strNotas.includes(search) ||
                       strNl.includes(search);
     
+    let matchAno = !ano || item.ano === ano;
     let matchLocal = !local || item.local === local;
     let matchEvento = !evento || item.evento === evento;
     
@@ -493,12 +541,64 @@ function applyFilters() {
       matchStatus = !item.almox && !item.contab && !item.cancelado;
     }
 
-    return matchSearch && matchLocal && matchEvento && matchStatus;
+    return matchSearch && matchAno && matchLocal && matchEvento && matchStatus;
   });
+}
 
+function applyFilters() {
+  let filtered = getFilteredData();
   let sorted = sortData(filtered);
   renderTable(sorted);
   updateKPIs(sorted);
+}
+
+// EXPORTAÇÃO DOS DADOS FILTRADOS PARA EXCEL (.XLSX)
+function exportToExcel() {
+  let filtered = getFilteredData();
+  let dataToExport = sortData(filtered);
+
+  if (dataToExport.length === 0) {
+    alert("Nenhum registro encontrado para exportar com os filtros atuais.");
+    return;
+  }
+
+  const excelData = dataToExport.map(item => {
+    let statusTexto = item.cancelado ? 'Cancelado' : (item.contab ? 'Contabilidade' : (item.almox ? 'Almoxarifado' : 'Aguardando'));
+    let prevPagamento = calculatePaymentForecast(item.entrega) || '-';
+
+    return {
+      "Ano": item.ano,
+      "Protocolo": item.protocolo,
+      "Evento": item.evento,
+      "Local": item.local,
+      "Descritivo": item.descritivo,
+      "Requisição": item.requisicao,
+      "Ficha(s)": item.fichas.join(', '),
+      "Empenho(s)": item.empenhos.join(', '),
+      "AF/OS": item.af,
+      "Valor (R$)": item.valor,
+      "Nota(s) Fiscal(is)": item.notas.join(', '),
+      "Liquidação(ões) NL": item.nl.join(', '),
+      "Data Entrega": formatDateBR(item.entrega),
+      "Data Processo": formatDateBR(item.dataProcesso),
+      "Prev. Pagamento": prevPagamento,
+      "Status": statusTexto
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Solicitações Filtradas");
+
+  const max_width = excelData.reduce((w, r) => Math.max(w, (r.Descritivo || '').length), 10);
+  worksheet['!cols'] = [
+    { wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: Math.min(max_width, 50) },
+    { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 14 },
+    { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 15 }
+  ];
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(workbook, `Relatorio_Compras_SECTUR_${todayStr}.xlsx`);
 }
 
 // TAGS
@@ -697,7 +797,6 @@ async function confirmAndDeleteRecord() {
 
 // CONVERSÃO RÁPIDA COM COMPRESSÃO AUTOMÁTICA DE IMAGENS
 const fileToBase64 = file => new Promise((resolve, reject) => {
-  // Se for imagem, comprime no navegador para upload instantâneo
   if (file.type.startsWith('image/')) {
     const img = new Image();
     const reader = new FileReader();
@@ -710,7 +809,6 @@ const fileToBase64 = file => new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
-      // Limita resolução máxima para 1200px mantendo proporção
       let width = img.width;
       let height = img.height;
       const maxDim = 1200;
@@ -729,13 +827,11 @@ const fileToBase64 = file => new Promise((resolve, reject) => {
       canvas.height = height;
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Exporta em JPEG com qualidade otimizada (0.7)
       const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
       resolve(dataUrl.split(',')[1]);
     };
 
     img.onerror = () => {
-      // Fallback em caso de falha de carregamento da imagem
       const fallbackReader = new FileReader();
       fallbackReader.readAsDataURL(file);
       fallbackReader.onload = () => resolve(fallbackReader.result.split(',')[1]);
@@ -744,7 +840,6 @@ const fileToBase64 = file => new Promise((resolve, reject) => {
 
     reader.readAsDataURL(file);
   } else {
-    // Caso seja PDF ou outros formatos, faz o encoding direto
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -753,7 +848,6 @@ const fileToBase64 = file => new Promise((resolve, reject) => {
 });
 
 async function processFileList(fileList) {
-  // Executa todas as conversões de arquivos em paralelo (Promise.all)
   return Promise.all(fileList.map(async item => {
     if (item.url) {
       return { name: item.name, url: item.url };
@@ -777,7 +871,6 @@ async function handleFormSubmit(e) {
   }
 
   try {
-    // Processamento paralelo de todas as categorias de arquivo
     const [filesReqPayload, filesAfPayload, filesNfPayload, filesNlPayload] = await Promise.all([
       processFileList(currentFiles.req),
       processFileList(currentFiles.af),
