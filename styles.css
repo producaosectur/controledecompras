@@ -101,26 +101,27 @@ body {
 body.dark-mode .kpi-card h3 { color: #94a3b8; }
 .kpi-card p { font-size: 1.6rem; font-weight: 700; }
 
-/* Toolbar de Filtros - Linha Única Perfeitamente Alinhada */
+/* Toolbar de Filtros - Linha Única Estrita */
 .toolbar { 
   display: flex; 
   align-items: center;
-  gap: 0.5rem; 
-  flex-wrap: nowrap; /* Garante que todos os itens fiquem na mesma linha */
+  gap: 0.4rem; 
+  flex-wrap: nowrap !important; /* Impede categoricamente a quebra de linha */
   margin-bottom: 1rem;
   padding: 0.5rem 0;
   position: sticky;
   top: 60px;
   z-index: 150;
   background: var(--bg-primary);
-  overflow-x: auto; /* Permite rolagem suave em telas muito pequenas sem quebrar o layout */
+  width: 100%;
+  overflow-x: auto; /* Permite rolagem suave apenas se a tela for menor que 1024px */
 }
 
 .toolbar input, .toolbar select {
-  padding: 0.55rem 0.75rem; 
+  padding: 0.5rem 0.5rem; 
   border: 1px solid var(--border-color); 
   border-radius: 6px; 
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   background: var(--card-bg); 
   color: var(--text-main);
   outline: none;
@@ -131,29 +132,30 @@ body.dark-mode .kpi-card h3 { color: #94a3b8; }
 }
 
 .toolbar input { 
-  flex: 1 1 220px; 
-  min-width: 160px; 
+  flex: 1 1 180px; 
+  min-width: 140px; 
 }
 
 .toolbar select {
-  flex: 0 0 auto;
-  max-width: 150px;
+  flex: 0 1 auto;
+  max-width: 130px;
+  min-width: 90px;
 }
 
 /* Buttons */
 .btn { 
-  padding: 0.55rem 1rem; 
+  padding: 0.5rem 0.75rem; 
   border-radius: 6px; 
   border: none; 
   cursor: pointer; 
   font-weight: 600; 
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  white-space: nowrap; /* Impede a quebra de linha do texto dos botões */
-  flex-shrink: 0;
+  gap: 0.3rem;
+  white-space: nowrap;
+  flex: 0 0 auto !important; /* Impede que os botões cedam espaço e caiam de linha */
   transition: opacity 0.2s;
 }
 
