@@ -47,6 +47,7 @@ function extractYearFromItem(item) {
   return new Date().getFullYear().toString();
 }
 
+// CÁLCULO DA PREVISÃO DE PAGAMENTO (DATA DA ENTREGA + 28 DIAS AJUSTADOS PARA A PRÓXIMA QUINTA-FEIRA)
 function calculatePaymentForecast(entregaStr) {
   if (!entregaStr) return null;
   let parts = entregaStr.split('T')[0].split('-');
@@ -78,6 +79,19 @@ function parseBRDateToUTC(dateBRStr) {
   return new Date(Date.UTC(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)));
 }
 
+function toggleProtocoloInput(isSemProtocolo) {
+  const inputProt = document.getElementById('form-protocolo');
+  if (!inputProt) return;
+  if (isSemProtocolo) {
+    inputProt.value = '';
+    inputProt.disabled = true;
+    inputProt.style.opacity = '0.5';
+  } else {
+    inputProt.disabled = false;
+    inputProt.style.opacity = '1';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadData();
@@ -104,7 +118,7 @@ function toggleTheme() {
 
 async function loadData() {
   const tbody = document.getElementById('table-body');
-  if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding: 2rem;">🔄 Carregando dados da planilha...</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding: 2rem;">🔄 Carregando dados da planilha...</td></tr>`;
 
   try {
     const response = await fetch(API_URL, { redirect: 'follow' });
@@ -198,7 +212,7 @@ async function loadData() {
 
       return {
         id: solId,
-        protocolo: item.PROTOCOLO || '',
+        protocolo: item.PROTOCOLO !== undefined && item.PROTOCOLO !== null ? String(item.PROTOCOLO).trim() : '',
         evento: item.EVENTO || '',
         local: item.LOCAL || '',
         descritivo: item.DESCRITIVO || '',
@@ -212,8 +226,6 @@ async function loadData() {
         entrega: item.ENTREGA || '',
         dataProcesso: item.DATA_PROCESSO || '',
         ano: yearExtracted,
-        almox: parseBool(item.CHK_ALMOXARIFADO),
-        contab: parseBool(item.CHK_CONTABILIDADE),
         cancelado: parseBool(item.CHK_CANCELADO),
         anexosReq: reqList,
         anexosAf: afList,
@@ -225,7 +237,6 @@ async function loadData() {
     cadLocais = [...new Set([...rawLocais, ...purchasesData.map(d => d.local).filter(Boolean)])].sort();
     cadEventos = [...new Set([...rawEventos, ...purchasesData.map(d => d.evento).filter(Boolean)])].sort();
     
-    // Lista os anos encontrados e garante o ano corrente na lista
     const currentYearStr = new Date().getFullYear().toString();
     cadAnos = [...new Set([currentYearStr, ...purchasesData.map(d => d.ano).filter(Boolean)])].sort((a,b) => b - a);
 
@@ -235,18 +246,17 @@ async function loadData() {
   } catch (error) {
     console.error("Erro ao carregar dados:", error);
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color: #dc2626; padding: 2rem;">❌ Erro ao conectar com o Google Sheets.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color: #dc2626; padding: 2rem;">❌ Erro ao conectar com o Google Sheets.</td></tr>`;
     }
   }
 }
 
-// ATUALIZAÇÃO DOS KPIS COM FORMATO (CONCLUÍDAS / TOTAL)
+// ATUALIZAÇÃO DOS KPIS
 function updateKPIs(data) {
   const totalQtdEl = document.getElementById('kpi-total-qtd');
   const totalValorEl = document.getElementById('kpi-total-valor');
 
-  // Considera concluída se estiver no Almoxarifado ou na Contabilidade (e não cancelada)
-  const concluidos = data.filter(i => (i.almox || i.contab) && !i.cancelado).length;
+  const concluidos = data.filter(i => i.nl && i.nl.length > 0 && !i.cancelado).length;
   const total = data.length;
 
   if (totalQtdEl) {
@@ -330,14 +340,34 @@ function updateSortHeaderUI() {
   });
 }
 
+// FUNÇÃO CENTRALIZADA DA HIERARQUIA DE STATUS
+function getStatusInfo(item) {
+  const protStr = String(item.protocolo || '').trim();
+  const temProtocolo = Boolean(protStr !== '' && protStr !== '-');
+  const temNF = Array.isArray(item.notas) && item.notas.length > 0;
+  const temNL = Array.isArray(item.nl) && item.nl.length > 0;
+
+  if (item.cancelado) {
+    return { rowClass: 'status-row-red', weight: 5 };
+  } else if (temNL) {
+    return { rowClass: 'status-row-blue', weight: 4 };
+  } else if (temNF) {
+    return { rowClass: 'status-row-yellow', weight: 3 };
+  } else if (temProtocolo) {
+    return { rowClass: 'status-row-pink', weight: 2 };
+  } else {
+    return { rowClass: 'status-row-neutral', weight: 1 };
+  }
+}
+
 function sortData(list) {
   return list.sort((a, b) => {
     let valA, valB;
 
     switch (currentSortColumn) {
       case 'protocolo':
-        valA = parseFloat(a.protocolo.toString().replace(/[^0-9.]/g, '')) || 0;
-        valB = parseFloat(b.protocolo.toString().replace(/[^0-9.]/g, '')) || 0;
+        valA = parseFloat(String(a.protocolo).replace(/[^0-9.]/g, '')) || 0;
+        valB = parseFloat(String(b.protocolo).replace(/[^0-9.]/g, '')) || 0;
         break;
       case 'requisicao':
         valA = parseFloat(a.requisicao) || 0;
@@ -360,8 +390,8 @@ function sortData(list) {
         valB = dtB ? dtB.getTime() : 0;
         break;
       case 'status':
-        valA = a.cancelado ? 4 : (a.contab ? 3 : (a.almox ? 2 : 1));
-        valB = b.cancelado ? 4 : (b.contab ? 3 : (b.almox ? 2 : 1));
+        valA = getStatusInfo(a).weight;
+        valB = getStatusInfo(b).weight;
         break;
       case 'evento':
         valA = (a.evento + " " + a.local).toLowerCase();
@@ -379,45 +409,29 @@ function sortData(list) {
   });
 }
 
+// RENDERIZAÇÃO DA TABELA (11 COLUNAS)
 function renderTable(data) {
   const tbody = document.getElementById('table-body');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding: 2rem;">Nenhum registro encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding: 2rem;">Nenhum registro encontrado.</td></tr>`;
     return;
   }
 
   data.forEach(item => {
-    let badgeHtml = '';
-    let rowClass = '';
-
-    if (item.cancelado) {
-      badgeHtml = `<span class="badge badge-red">Cancelado</span>`;
-      rowClass = 'status-row-red';
-    } else if (item.contab) {
-      badgeHtml = `<span class="badge badge-blue">Contabilidade</span>`;
-      rowClass = 'status-row-blue';
-    } else if (item.almox) {
-      badgeHtml = `<span class="badge badge-green">Almoxarifado</span>`;
-      rowClass = 'status-row-green';
-    } else {
-      badgeHtml = `<span class="badge badge-orange">Aguardando</span>`;
-      rowClass = 'status-row-orange';
-    }
+    const statusInfo = getStatusInfo(item);
 
     let strFichas = item.fichas.length ? item.fichas.join(', ') : '-';
     let strEmpenhos = item.empenhos.length ? item.empenhos.join(', ') : '-';
     let strNotas = item.notas.length ? item.notas.join(', ') : '-';
     let strNl = item.nl.length ? item.nl.join(', ') : '-';
-
-    let prevPagamento = calculatePaymentForecast(item.entrega);
-    let strPrevPagamento = prevPagamento ? prevPagamento : '-';
+    let prevPagamento = calculatePaymentForecast(item.entrega) || '-';
 
     tbody.innerHTML += `
-      <tr class="${rowClass} clickable-row" onclick="editRecord('${item.id}')" title="Clique para explorar / editar o protocolo ${item.protocolo}">
-        <td><strong>${item.protocolo}</strong></td>
+      <tr class="${statusInfo.rowClass} clickable-row" onclick="editRecord('${item.id}')" title="Clique para explorar / editar">
+        <td><strong>${item.protocolo || 'Aguardando...'}</strong></td>
         <td>${item.evento || '-'}<br><small style="opacity: 0.7">${item.local || '-'}</small></td>
         <td>${item.descritivo}</td>
         <td>${item.requisicao || '-'}</td>
@@ -427,8 +441,7 @@ function renderTable(data) {
         <td>${item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
         <td>${strNotas}</td>
         <td>${strNl}</td>
-        <td><strong>${strPrevPagamento}</strong></td>
-        <td>${badgeHtml}</td>
+        <td><strong>${prevPagamento}</strong></td>
       </tr>
     `;
   });
@@ -488,6 +501,7 @@ function updatePrevisaoBanner(entregaVal) {
   }
 }
 
+// LÓGICA DE FILTRAGEM
 function getFilteredData() {
   const searchInput = document.getElementById('search-input');
   const filterAno = document.getElementById('filter-ano');
@@ -501,8 +515,10 @@ function getFilteredData() {
   const evento = filterEvento ? filterEvento.value : '';
   const status = filterStatus ? filterStatus.value : '';
 
-  const today = new Date();
-  const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  // Data atual no fuso horário do Brasil/São Paulo
+  const spDateStr = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+  const todaySP = new Date(spDateStr);
+  const todayZero = new Date(Date.UTC(todaySP.getFullYear(), todaySP.getMonth(), todaySP.getDate()));
 
   return purchasesData.filter(item => {
     let strFichas = item.fichas.join(' ').toLowerCase();
@@ -511,7 +527,7 @@ function getFilteredData() {
     let strNl = item.nl.join(' ').toLowerCase();
 
     let matchSearch = !search || 
-                      item.protocolo.toString().toLowerCase().includes(search) || 
+                      String(item.protocolo).toLowerCase().includes(search) || 
                       item.descritivo.toString().toLowerCase().includes(search) ||
                       item.evento.toString().toLowerCase().includes(search) ||
                       item.local.toString().toLowerCase().includes(search) ||
@@ -526,19 +542,27 @@ function getFilteredData() {
     let matchLocal = !local || item.local === local;
     let matchEvento = !evento || item.evento === evento;
     
+    const statusInfo = getStatusInfo(item);
     let matchStatus = true;
-    if (status === 'A_VENCER') {
-      let prevPag = calculatePaymentForecast(item.entrega);
-      let dtPrev = parseBRDateToUTC(prevPag);
-      matchStatus = !item.cancelado && dtPrev !== null && dtPrev >= todayUTC;
+
+    if (status === 'SEM_PROTOCOLO') {
+      matchStatus = statusInfo.rowClass === 'status-row-neutral';
+    } else if (status === 'COM_PROTOCOLO') {
+      matchStatus = statusInfo.rowClass === 'status-row-pink';
+    } else if (status === 'COM_NF') {
+      matchStatus = statusInfo.rowClass === 'status-row-yellow';
+    } else if (status === 'AGUARDANDO_PAGAMENTO') {
+      // REGRA ÚNICA:
+      // Lê a data de Prev. Pagamento do registro.
+      // Se a data de pagamento não chegou (Prev. Pagamento >= Data Atual SP), exibe no filtro.
+      let prevPagStr = calculatePaymentForecast(item.entrega);
+      let dtPrev = parseBRDateToUTC(prevPagStr);
+
+      matchStatus = dtPrev !== null && dtPrev.getTime() >= todayZero.getTime();
+    } else if (status === 'COM_NL') {
+      matchStatus = statusInfo.rowClass === 'status-row-blue';
     } else if (status === 'CANCELADO') {
-      matchStatus = item.cancelado;
-    } else if (status === 'CONTABILIDADE') {
-      matchStatus = item.contab && !item.cancelado;
-    } else if (status === 'ALMOXARIFADO') {
-      matchStatus = item.almox && !item.cancelado;
-    } else if (status === 'AGUARDANDO') {
-      matchStatus = !item.almox && !item.contab && !item.cancelado;
+      matchStatus = statusInfo.rowClass === 'status-row-red';
     }
 
     return matchSearch && matchAno && matchLocal && matchEvento && matchStatus;
@@ -563,12 +587,12 @@ function exportToExcel() {
   }
 
   const excelData = dataToExport.map(item => {
-    let statusTexto = item.cancelado ? 'Cancelado' : (item.contab ? 'Contabilidade' : (item.almox ? 'Almoxarifado' : 'Aguardando'));
+    let statusInfo = getStatusInfo(item);
     let prevPagamento = calculatePaymentForecast(item.entrega) || '-';
 
     return {
       "Ano": item.ano,
-      "Protocolo": item.protocolo,
+      "Protocolo": item.protocolo || 'Aguardando...',
       "Evento": item.evento,
       "Local": item.local,
       "Descritivo": item.descritivo,
@@ -582,7 +606,7 @@ function exportToExcel() {
       "Data Entrega": formatDateBR(item.entrega),
       "Data Processo": formatDateBR(item.dataProcesso),
       "Prev. Pagamento": prevPagamento,
-      "Status": statusTexto
+      "Status": statusInfo.rowClass.replace('status-row-', '').toUpperCase()
     };
   });
 
@@ -592,7 +616,7 @@ function exportToExcel() {
 
   const max_width = excelData.reduce((w, r) => Math.max(w, (r.Descritivo || '').length), 10);
   worksheet['!cols'] = [
-    { wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: Math.min(max_width, 50) },
+    { wch: 8 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: Math.min(max_width, 50) },
     { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 14 },
     { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 15 }
   ];
@@ -630,7 +654,7 @@ function renderTags(type) {
   });
 }
 
-// GESTÃO E ANEXOS MULTIPLOS
+// GESTÃO DE ANEXOS MÚLTIPLOS
 function handleFileSelect(event, type) {
   const files = Array.from(event.target.files);
   files.forEach(file => {
@@ -684,6 +708,10 @@ function openModal() {
   if (form) form.reset();
   
   document.getElementById('form-id').value = '';
+  const chkSemProt = document.getElementById('form-chk-sem-protocolo');
+  if (chkSemProt) chkSemProt.checked = false;
+  toggleProtocoloInput(false);
+
   const boxBanner = document.getElementById('box-previsao-pagamento');
   if (boxBanner) boxBanner.style.display = 'none';
   
@@ -711,7 +739,14 @@ function editRecord(id) {
   if (!item) return;
 
   document.getElementById('form-id').value = item.id;
-  document.getElementById('form-protocolo').value = item.protocolo;
+  document.getElementById('form-protocolo').value = item.protocolo || '';
+  
+  const protStr = String(item.protocolo || '').trim();
+  const semProtocolo = !protStr || protStr === '-';
+  const chkSemProt = document.getElementById('form-chk-sem-protocolo');
+  if (chkSemProt) chkSemProt.checked = semProtocolo;
+  toggleProtocoloInput(semProtocolo);
+
   document.getElementById('form-requisicao').value = item.requisicao;
   document.getElementById('form-af').value = item.af;
   document.getElementById('form-evento').value = item.evento;
@@ -720,8 +755,6 @@ function editRecord(id) {
   document.getElementById('form-valor').value = item.valor;
   document.getElementById('form-entrega').value = item.entrega;
   document.getElementById('form-data-processo').value = item.dataProcesso;
-  document.getElementById('form-chk-almox').checked = item.almox;
-  document.getElementById('form-chk-contab').checked = item.contab;
   document.getElementById('form-chk-cancelado').checked = item.cancelado;
 
   updatePrevisaoBanner(item.entrega);
@@ -758,7 +791,7 @@ function editRecord(id) {
     deleteBtn.style.display = 'inline-block';
   }
 
-  document.getElementById('modal-title').innerText = `Explorar / Editar Protocolo ${item.protocolo}`;
+  document.getElementById('modal-title').innerText = `Editar Solicitação ${item.protocolo || '(Sem Protocolo)'}`;
   document.getElementById('form-modal').style.display = 'flex';
 
   resetModalScroll();
@@ -766,11 +799,9 @@ function editRecord(id) {
 
 async function confirmAndDeleteRecord() {
   const id = document.getElementById('form-id').value;
-  const protocolo = document.getElementById('form-protocolo').value;
-
   if (!id) return;
 
-  const confirmed = confirm(`Tem certeza que deseja excluir permanentemente o registro de Protocolo "${protocolo}"?\n\nEsta ação removerá a solicitação e todos os vínculos na planilha.`);
+  const confirmed = confirm(`Tem certeza que deseja excluir permanentemente este registro?\n\nEsta ação removerá a solicitação e todos os vínculos na planilha.`);
   if (!confirmed) return;
 
   const deleteBtn = document.getElementById('btn-delete-record');
@@ -870,6 +901,17 @@ async function handleFormSubmit(e) {
     submitBtn.disabled = true;
   }
 
+  // CAPTURA AUTOMÁTICA DOS VALORES DOS INPUTS DE FICHA, EMPENHO, NF E NL CASO NÃO TENHAM SIDO CLICADOS NO BOTÃO (+)
+  ['ficha', 'empenho', 'nf', 'nl'].forEach(type => {
+    const inputEl = document.getElementById(`input-tag-${type}`);
+    if (inputEl && inputEl.value.trim() !== '') {
+      const val = inputEl.value.trim();
+      if (!currentTags[type].includes(val)) {
+        currentTags[type].push(val);
+      }
+    }
+  });
+
   try {
     const [filesReqPayload, filesAfPayload, filesNfPayload, filesNlPayload] = await Promise.all([
       processFileList(currentFiles.req),
@@ -878,11 +920,13 @@ async function handleFormSubmit(e) {
       processFileList(currentFiles.nl)
     ]);
 
+    const isSemProtocolo = document.getElementById('form-chk-sem-protocolo')?.checked;
+
     const payload = {
       ID_SOLICITACAO: document.getElementById('form-id').value.trim() !== "" 
         ? document.getElementById('form-id').value 
         : "SOL" + Date.now(),
-      PROTOCOLO: document.getElementById('form-protocolo').value,
+      PROTOCOLO: isSemProtocolo ? "" : document.getElementById('form-protocolo').value,
       REQUISICAO: document.getElementById('form-requisicao').value,
       AF_OS: document.getElementById('form-af').value,
       EVENTO: document.getElementById('form-evento').value,
@@ -891,8 +935,6 @@ async function handleFormSubmit(e) {
       VALOR_TOTAL: parseFloat(document.getElementById('form-valor').value) || 0,
       ENTREGA: document.getElementById('form-entrega').value,
       DATA_PROCESSO: document.getElementById('form-data-processo').value,
-      CHK_ALMOXARIFADO: document.getElementById('form-chk-almox').checked,
-      CHK_CONTABILIDADE: document.getElementById('form-chk-contab').checked,
       CHK_CANCELADO: document.getElementById('form-chk-cancelado').checked,
       LISTA_FICHAS: currentTags.ficha,
       LISTA_EMPENHOS: currentTags.empenho,

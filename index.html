@@ -21,7 +21,7 @@
 
   <main class="container">
     
-    <!-- Dashboard KPIs (Reduzido para 2 Cards Diretos ao Ponto) -->
+    <!-- Dashboard KPIs -->
     <section class="kpi-grid">
       <div class="kpi-card">
         <h3>Solicitações (Concluídas / Total)</h3>
@@ -33,7 +33,7 @@
       </div>
     </section>
 
-    <!-- Toolbar de Filtros (Sticky) -->
+    <!-- Toolbar de Filtros -->
     <section class="toolbar">
       <input type="text" id="search-input" placeholder="Buscar por Protocolo, Descritivo, Req, Ficha, Empenho, NF...">
       
@@ -51,10 +51,11 @@
 
       <select id="filter-status">
         <option value="">Todos os Status</option>
-        <option value="A_VENCER">⏳ A Vencer / A Pagar (Previsão Futura)</option>
-        <option value="ALMOXARIFADO">Entregue (Almoxarifado)</option>
-        <option value="CONTABILIDADE">Concluído (Contabilidade)</option>
-        <option value="AGUARDANDO">Aguardando Entrega</option>
+        <option value="SEM_PROTOCOLO">Aguardando Protocolo</option>
+        <option value="COM_PROTOCOLO">Com Protocolo</option>
+        <option value="COM_NF">Com Nota Fiscal (NF)</option>
+        <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>
+        <option value="COM_NL">Com Liquidação (NL)</option>
         <option value="CANCELADO">Cancelado</option>
       </select>
 
@@ -63,7 +64,7 @@
       <button class="btn btn-primary" onclick="openModal()">+ Nova Solicitação</button>
     </section>
 
-    <!-- Tabela Principal com Colunas Ordenáveis -->
+    <!-- Tabela Principal (Removida a coluna redundante de Status) -->
     <section class="table-container">
       <table id="purchases-table">
         <thead>
@@ -79,7 +80,6 @@
             <th>N.F.(s)</th>
             <th>NL(s)</th>
             <th class="sortable" data-sort="prevPagamento">Prev. Pagamento <span class="sort-icon">↕</span></th>
-            <th class="sortable" data-sort="status">Status <span class="sort-icon">↕</span></th>
           </tr>
         </thead>
         <tbody id="table-body">
@@ -90,37 +90,58 @@
 
   </main>
 
-  <!-- Modal de Explorar / Editar Completo -->
+  <!-- Modal de Form -->
   <div id="form-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">×</span>
       <h3 id="modal-title">Nova Solicitação de Compra</h3>
       
-      <!-- Tag Destaque com o Cálculo da Previsão de Pagamento -->
-      <div id="box-previsao-pagamento" class="previsao-banner" style="display: none;">
-        <span>🗓️ Previsão Estimada de Pagamento:</span>
-        <strong id="tag-previsao-data">-</strong>
+      <!-- Card Banner Destacado e Isolado da Previsão de Pagamento -->
+      <div id="box-previsao-pagamento" class="previsao-banner">
+        <div class="previsao-info">
+          <span class="previsao-label">🗓️ Previsão Estimada de Pagamento</span>
+          <strong id="tag-previsao-data" class="previsao-data">-</strong>
+        </div>
       </div>
 
       <form id="purchase-form">
         <input type="hidden" id="form-id">
         
-        <div class="form-group-row">
+        <!-- Linha 1: Protocolo, Requisição, Ficha -->
+        <div class="form-grid-3">
           <div class="form-group">
-            <label for="form-protocolo">Protocolo</label>
-            <input type="text" id="form-protocolo" required placeholder="Ex: 9.659/2025">
+            <div class="label-row">
+              <label for="form-protocolo">Protocolo</label>
+            </div>
+            <div class="input-with-action">
+              <input type="text" id="form-protocolo" placeholder="Ex: 9.659/2026">
+              <label class="chk-toggle" title="Marque se não houver protocolo">
+                <input type="checkbox" id="form-chk-sem-protocolo" onchange="toggleProtocoloInput(this.checked)"> Sem Prot.
+              </label>
+            </div>
           </div>
+
           <div class="form-group">
-            <label for="form-requisicao">Requisição</label>
+            <div class="label-row">
+              <label for="form-requisicao">Requisição</label>
+            </div>
             <input type="text" id="form-requisicao" placeholder="Ex: 1618">
           </div>
+
           <div class="form-group">
-            <label for="form-af">AF/OS</label>
-            <input type="text" id="form-af" placeholder="Ex: 85">
+            <div class="label-row">
+              <label>Ficha(s)</label>
+            </div>
+            <div class="relation-input-group">
+              <input type="text" id="input-tag-ficha" placeholder="Ex: 285">
+              <button type="button" class="btn-add-inline" onclick="addTag('ficha')">+</button>
+            </div>
+            <div id="tags-ficha" class="tags-container"></div>
           </div>
         </div>
 
-        <div class="form-group-row">
+        <!-- Linha 2: Evento e Local -->
+        <div class="form-grid-2">
           <div class="form-group">
             <label for="form-evento">Evento</label>
             <select id="form-evento" required>
@@ -135,12 +156,14 @@
           </div>
         </div>
 
+        <!-- Descritivo Completo -->
         <div class="form-group">
           <label for="form-descritivo">Descritivo Completo</label>
-          <textarea id="form-descritivo" rows="2" required></textarea>
+          <textarea id="form-descritivo" rows="2" required placeholder="Digite a descrição detalhada..."></textarea>
         </div>
 
-        <div class="form-group-row">
+        <!-- Linha 3: Valor e Datas -->
+        <div class="form-grid-3">
           <div class="form-group">
             <label for="form-valor">Valor Total (R$)</label>
             <input type="number" step="0.01" id="form-valor" required placeholder="0.00">
@@ -155,31 +178,29 @@
           </div>
         </div>
 
-        <!-- Seções Múltiplas: Fichas, Empenhos, NFs e NLs -->
+        <!-- Linha 4: Bloco Unificado de Vínculos (4 Colunas Harmoniosas) -->
         <div class="multi-relations-grid">
-          <div class="relation-block">
-            <label>Ficha(s)</label>
-            <div class="relation-input-group">
-              <input type="text" id="input-tag-ficha" placeholder="Ex: 285">
-              <button type="button" class="btn btn-sm" onclick="addTag('ficha')">+</button>
-            </div>
-            <div id="tags-ficha" class="tags-container"></div>
-          </div>
-
           <div class="relation-block">
             <label>Empenho(s)</label>
             <div class="relation-input-group">
               <input type="text" id="input-tag-empenho" placeholder="Ex: 1086">
-              <button type="button" class="btn btn-sm" onclick="addTag('empenho')">+</button>
+              <button type="button" class="btn-add-inline" onclick="addTag('empenho')">+</button>
             </div>
             <div id="tags-empenho" class="tags-container"></div>
+          </div>
+
+          <div class="relation-block">
+            <label for="form-af">AF/OS</label>
+            <div class="relation-input-group">
+              <input type="text" id="form-af" placeholder="Ex: 85">
+            </div>
           </div>
 
           <div class="relation-block">
             <label>Nota(s) Fiscal(is)</label>
             <div class="relation-input-group">
               <input type="text" id="input-tag-nf" placeholder="Ex: 90609">
-              <button type="button" class="btn btn-sm" onclick="addTag('nf')">+</button>
+              <button type="button" class="btn-add-inline" onclick="addTag('nf')">+</button>
             </div>
             <div id="tags-nf" class="tags-container"></div>
           </div>
@@ -188,19 +209,18 @@
             <label>Liquidação(ões) NL</label>
             <div class="relation-input-group">
               <input type="text" id="input-tag-nl" placeholder="Ex: 11277">
-              <button type="button" class="btn btn-sm" onclick="addTag('nl')">+</button>
+              <button type="button" class="btn-add-inline" onclick="addTag('nl')">+</button>
             </div>
             <div id="tags-nl" class="tags-container"></div>
           </div>
         </div>
 
-        <div class="form-group-row checkboxes">
-          <label><input type="checkbox" id="form-chk-almox"> Almoxarifado</label>
-          <label><input type="checkbox" id="form-chk-contab"> Contabilidade</label>
+        <!-- Status Cancelado -->
+        <div class="form-group checkboxes">
           <label><input type="checkbox" id="form-chk-cancelado"> Cancelado</label>
         </div>
 
-        <!-- Seção Múltipla de Anexos por Categoria (Salva no Google Drive) -->
+        <!-- Módulo de Anexos Padronizado (4 Colunas) -->
         <div class="attachments-grid">
           <div class="attachment-block">
             <label for="file-req-input">📁 Anexo(s) Requisição</label>
@@ -235,7 +255,6 @@
     </div>
   </div>
 
-  <!-- Biblioteca para exportação de planilhas (.xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
