@@ -24,7 +24,7 @@
     <!-- Dashboard KPIs -->
     <section class="kpi-grid">
       <div class="kpi-card">
-        <h3>Solicitações (Concluídas / Total)</h3>
+        <h3>Solicitações</h3>
         <p id="kpi-total-qtd">0 / 0</p>
       </div>
       <div class="kpi-card">
@@ -33,9 +33,9 @@
       </div>
     </section>
 
-    <!-- Toolbar de Filtros -->
+    <!-- Toolbar de Filtros (Linha Única Harmoniosa) -->
     <section class="toolbar">
-      <input type="text" id="search-input" placeholder="Buscar por Protocolo, Descritivo, Req, Ficha, Empenho, NF...">
+      <input type="text" id="search-input" placeholder="Buscar por Protocolo, Descritivo, Req, Ficha, Empenho, NF..." title="Atalho: Ctrl+F">
       
       <select id="filter-ano">
         <option value="">Todos os Anos</option>
@@ -60,11 +60,12 @@
       </select>
 
       <button class="btn btn-filter" onclick="applyFilters()">🔍 Filtrar</button>
+      <button class="btn btn-secondary" id="btn-clear-filters" onclick="clearAllFilters()">🧹 Limpar</button>
       <button class="btn btn-secondary" onclick="exportToExcel()">📊 Exportar Excel</button>
-      <button class="btn btn-primary" onclick="openModal()">+ Nova Solicitação</button>
+      <button class="btn btn-primary" onclick="openModal()" title="Atalho: Alt+N">+ Nova Solicitação</button>
     </section>
 
-    <!-- Tabela Principal (Removida a coluna redundante de Status) -->
+    <!-- Tabela Principal -->
     <section class="table-container">
       <table id="purchases-table">
         <thead>
@@ -93,9 +94,12 @@
   <!-- Modal de Form -->
   <div id="form-modal" class="modal">
     <div class="modal-content">
-      <span class="close-btn" onclick="closeModal()">×</span>
+      <span class="close-btn" onclick="closeModal()" title="Fechar (Esc)">×</span>
       <h3 id="modal-title">Nova Solicitação de Compra</h3>
       
+      <!-- ESTEIRA DE PROCESSO (STEPPER) -->
+      <div id="process-stepper-container"></div>
+
       <!-- Card Banner Destacado e Isolado da Previsão de Pagamento -->
       <div id="box-previsao-pagamento" class="previsao-banner">
         <div class="previsao-info">
@@ -248,14 +252,28 @@
         </div>
 
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()" title="Atalho: Esc">Cancelar</button>
           <button type="submit" class="btn btn-primary">Salvar Registro</button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- Modal de Confirmação Customizado -->
+  <div id="custom-confirm-modal" class="custom-confirm-overlay">
+    <div class="custom-confirm-box">
+      <div class="custom-confirm-icon">⚠️</div>
+      <h4 id="custom-confirm-title">Confirmar Alterações</h4>
+      <p id="custom-confirm-message">Você fez alterações neste registro. Tem certeza que deseja salvá-las?</p>
+      <div class="custom-confirm-actions">
+        <button type="button" id="custom-confirm-cancel" class="btn btn-secondary">Cancelar</button>
+        <button type="button" id="custom-confirm-ok" class="btn btn-primary">Sim, Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js"></script>
+  <!-- PONTO DE ENTRADA DO MÓDULO JAVASCRIPT -->
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
