@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg-primary: #f8fafc;
   --card-bg: #ffffff;
   --text-main: #1e293b;
@@ -21,6 +22,7 @@
 
 /* Semáforo Modo Escuro */
 body.dark-mode {
+  color-scheme: dark;
   --bg-primary: #0f172a;
   --card-bg: #1e293b;
   --text-main: #f8fafc;
@@ -494,6 +496,30 @@ body.dark-mode .previsao-data {
   outline: none !important;
   width: 100% !important;
   height: 38px !important;
+}
+
+/* Contraste do ícone de calendário nos campos de data */
+.form-group input[type="date"] {
+  color-scheme: light;
+}
+
+body.dark-mode .form-group input[type="date"] {
+  color-scheme: dark;
+}
+
+.form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.85;
+  filter: none;
+}
+
+body.dark-mode .form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.95;
+}
+
+.form-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 
 .form-group textarea {
