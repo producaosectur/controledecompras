@@ -73,7 +73,7 @@ function toggleTheme() {
   const isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
   const toggleBtn = document.getElementById('theme-toggle');
-  if (toggleBtn) toggleBtn.innerText = isDark ? '☀️ Modo Escuro' : '🌙 Modo Escuro';
+  if (toggleBtn) toggleBtn.innerText = isDark ? '☀️ Modo Claro' : '🌙 Modo Escuro';
 }
 
 function setupEventListeners() {
