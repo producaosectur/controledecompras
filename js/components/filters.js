@@ -61,6 +61,7 @@ export function getFilteredData() {
   return state.purchasesData.filter(item => {
     let strFichas = (item.fichas || []).join(' ').toLowerCase();
     let strEmpenhos = (item.empenhos || []).join(' ').toLowerCase();
+    let strAfs = (Array.isArray(item.afs) && item.afs.length ? item.afs.join(' ') : String(item.af || '')).toLowerCase();
     let strNotas = (item.notas || []).join(' ').toLowerCase();
     let strNl = (item.nl || []).join(' ').toLowerCase();
 
@@ -70,7 +71,7 @@ export function getFilteredData() {
                       String(item.evento || '').toLowerCase().includes(search) ||
                       String(item.local || '').toLowerCase().includes(search) ||
                       String(item.requisicao || '').toLowerCase().includes(search) ||
-                      String(item.af || '').toLowerCase().includes(search) ||
+                      strAfs.includes(search) ||
                       strFichas.includes(search) ||
                       strEmpenhos.includes(search) ||
                       strNotas.includes(search) ||
