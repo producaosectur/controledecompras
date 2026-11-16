@@ -14,7 +14,11 @@ export function renderStepper(data = {}) {
   const hasReq = Boolean(data.requisicao && String(data.requisicao).trim() !== '');
   const hasProt = Boolean(data.protocolo && String(data.protocolo).trim() !== '' && data.protocolo !== '-');
   const hasEmp = Boolean(data.fichas?.length || data.empenhos?.length || data.tagsEmpenho);
-  const hasAf = Boolean(data.af && String(data.af).trim() !== '');
+  const hasAf = Boolean(
+    data.afs?.length ||
+    data.tagsAf ||
+    (data.af && String(data.af).trim() !== '' && String(data.af).trim() !== '-')
+  );
   const hasNf = Boolean(data.notas?.length || data.tagsNf);
   const hasNl = Boolean(data.nl?.length || data.tagsNl);
 
