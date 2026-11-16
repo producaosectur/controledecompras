@@ -30,14 +30,12 @@ function highlightText(content, searchTerm) {
   const cleanTerm = searchTerm.trim();
   if (!cleanTerm) return content;
 
-  // Se o conteúdo possuir tags HTML (ex: <span> de anexos), aplica o destaque apenas nas partes de texto fora das tags
   const regex = new RegExp(`(${cleanTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
   
-  // Divide a string por tags HTML para evitar corromper atributos como class="" ou title=""
   const parts = content.split(/(<[^>]+>)/g);
   return parts.map(part => {
     if (part.startsWith('<') && part.endsWith('>')) {
-      return part; // Retorna tag HTML intacta
+      return part;
     }
     return part.replace(regex, '<mark class="search-highlight">$1</mark>');
   }).join('');
@@ -85,8 +83,10 @@ export function sortData(list) {
         valB = parseFloat(b.requisicao) || 0;
         break;
       case 'af':
-        valA = parseFloat(a.af) || 0;
-        valB = parseFloat(b.af) || 0;
+        const firstAfA = Array.isArray(a.afs) && a.afs.length ? a.afs[0] : String(a.af || '').split(',')[0];
+        const firstAfB = Array.isArray(b.afs) && b.afs.length ? b.afs[0] : String(b.af || '').split(',')[0];
+        valA = parseFloat(String(firstAfA).replace(/[^0-9.]/g, '')) || 0;
+        valB = parseFloat(String(firstAfB).replace(/[^0-9.]/g, '')) || 0;
         break;
       case 'valor':
         valA = a.valor || 0;
@@ -147,7 +147,6 @@ export function renderTable(data) {
     return;
   }
 
-  // Fragmento em memória para evitar múltiplos reflows/paints no navegador
   const fragment = document.createDocumentFragment();
 
   data.forEach(item => {
@@ -159,13 +158,14 @@ export function renderTable(data) {
     let strDescritivo = item.descritivo || '-';
     let strFichas = item.fichas && item.fichas.length ? item.fichas.join(', ') : '-';
     let strEmpenhos = item.empenhos && item.empenhos.length ? item.empenhos.join(', ') : '-';
+    let strAfs = Array.isArray(item.afs) && item.afs.length ? item.afs.join(', ') : (item.af || '-');
     let strNotas = item.notas && item.notas.length ? item.notas.join(', ') : '-';
     let strNl = item.nl && item.nl.length ? item.nl.join(', ') : '-';
     let prevPagamento = calculatePaymentForecast(item.entrega) || '-';
     let valorFormatted = item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
     const cellReq = formatAttachmentText(item.requisicao, item.anexosReq);
-    const cellAf = formatAttachmentText(item.af, item.anexosAf);
+    const cellAf = formatAttachmentText(strAfs, item.anexosAf);
     const cellNf = formatAttachmentText(strNotas, item.anexosNf);
     const cellNl = formatAttachmentText(strNl, item.anexosNl);
 
@@ -202,7 +202,7 @@ export function renderTable(data) {
       <td title="Requisição: ${item.requisicao || '-'}">${hlReq}</td>
       <td title="Ficha(s): ${strFichas}">${hlFichas}</td>
       <td title="Empenho(s): ${strEmpenhos}">${hlEmpenhos}</td>
-      <td title="AF/OS: ${item.af || '-'}">${hlAf}</td>
+      <td title="AF/OS(s): ${strAfs}">${hlAf}</td>
       <td title="Valor: ${valorFormatted}">${hlValor}</td>
       <td title="Nota(s) Fiscal(is): ${strNotas}">${hlNf}</td>
       <td title="Liquidação(ões) NL: ${strNl}">${hlNl}</td>
@@ -211,7 +211,6 @@ export function renderTable(data) {
     fragment.appendChild(tr);
   });
 
-  // Inserção única no DOM
   tbody.appendChild(fragment);
 }
 
