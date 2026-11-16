@@ -3,6 +3,7 @@ export const state = {
   purchasesData: [],
   fichasMap: {},
   empenhosMap: {},
+  afMap: {},
   notasMap: {},
   liquidacoesMap: {},
   anexosReqMap: {},
@@ -12,7 +13,7 @@ export const state = {
   cadLocais: [],
   cadEventos: [],
   cadAnos: [],
-  currentTags: { ficha: [], empenho: [], nf: [], nl: [] },
+  currentTags: { ficha: [], empenho: [], af: [], nf: [], nl: [] },
   currentFiles: { req: [], af: [], nf: [], nl: [] },
   currentSortColumn: 'protocolo',
   currentSortDirection: 'asc'
