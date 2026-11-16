@@ -33,6 +33,14 @@ function sanitizePastedText(text) {
     .trim();
 }
 
+function normalizeAfArray(item) {
+  if (Array.isArray(item.afs)) return [...item.afs];
+  if (Array.isArray(item.af)) return [...item.af];
+  const raw = String(item.af || '').trim();
+  if (!raw || raw === '-') return [];
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 function setupPasteSanitizer() {
   const modalEl = document.getElementById('form-modal');
   if (!modalEl) return;
@@ -67,7 +75,6 @@ function getCurrentFormSnapshot() {
   return {
     protocolo: isSemProt ? "" : String(document.getElementById('form-protocolo')?.value || '').trim(),
     requisicao: String(document.getElementById('form-requisicao')?.value || '').trim(),
-    af: String(document.getElementById('form-af')?.value || '').trim(),
     evento: String(document.getElementById('form-evento')?.value || '').trim(),
     local: String(document.getElementById('form-local')?.value || '').trim(),
     descritivo: String(document.getElementById('form-descritivo')?.value || '').trim(),
@@ -77,6 +84,7 @@ function getCurrentFormSnapshot() {
     cancelado: Boolean(document.getElementById('form-chk-cancelado')?.checked),
     tagsFicha: (state.currentTags.ficha || []).join(','),
     tagsEmpenho: (state.currentTags.empenho || []).join(','),
+    tagsAf: (state.currentTags.af || []).join(','),
     tagsNf: (state.currentTags.nf || []).join(','),
     tagsNl: (state.currentTags.nl || []).join(','),
     filesReqCount: (state.currentFiles.req || []).length,
@@ -159,7 +167,6 @@ export async function copyRecordSummary() {
   const isSemProt = document.getElementById('form-chk-sem-protocolo')?.checked;
   const protocolo = isSemProt ? 'Aguardando...' : (document.getElementById('form-protocolo')?.value || 'Aguardando...').trim();
   const requisicao = (document.getElementById('form-requisicao')?.value || '-').trim();
-  const af = (document.getElementById('form-af')?.value || '-').trim();
   const evento = (document.getElementById('form-evento')?.value || '-').trim();
   const local = (document.getElementById('form-local')?.value || '-').trim();
   const descritivo = (document.getElementById('form-descritivo')?.value || '-').trim();
@@ -170,6 +177,7 @@ export async function copyRecordSummary() {
 
   const fichas = (state.currentTags.ficha || []).join(', ') || '-';
   const empenhos = (state.currentTags.empenho || []).join(', ') || '-';
+  const afs = (state.currentTags.af || []).join(', ') || '-';
   const notas = (state.currentTags.nf || []).join(', ') || '-';
   const nl = (state.currentTags.nl || []).join(', ') || '-';
 
@@ -194,7 +202,7 @@ export async function copyRecordSummary() {
 • Valor: ${valorFormatted}
 • Fichas: ${fichas}
 • Empenho(s): ${empenhos}
-• AF/OS: ${af}
+• AF/OS(s): ${afs}
 • Nota(s) Fiscal(is): ${notas}
 • Liquidação(ões) NL: ${nl}
 • Status: ${statusText}
@@ -226,7 +234,7 @@ export function setupModalInputMasks() {
     });
   }
 
-  ['form-protocolo', 'form-requisicao', 'form-af'].forEach(id => {
+  ['form-protocolo', 'form-requisicao'].forEach(id => {
     const input = document.getElementById(id);
     if (input) {
       input.addEventListener('input', checkDuplicateFields);
@@ -331,8 +339,8 @@ export function openModal() {
   const boxBanner = document.getElementById('box-previsao-pagamento');
   if (boxBanner) boxBanner.style.display = 'none';
   
-  state.currentTags = { ficha: [], empenho: [], nf: [], nl: [] };
-  ['ficha', 'empenho', 'nf', 'nl'].forEach(renderTags);
+  state.currentTags = { ficha: [], empenho: [], af: [], nf: [], nl: [] };
+  ['ficha', 'empenho', 'af', 'nf', 'nl'].forEach(renderTags);
 
   state.currentFiles = { req: [], af: [], nf: [], nl: [] };
   ['req', 'af', 'nf', 'nl'].forEach(renderFileChips);
@@ -351,7 +359,6 @@ export function openModal() {
   originalRecordData = {
     protocolo: "",
     requisicao: "",
-    af: "",
     evento: "",
     local: "",
     descritivo: "",
@@ -361,6 +368,7 @@ export function openModal() {
     cancelado: false,
     tagsFicha: "",
     tagsEmpenho: "",
+    tagsAf: "",
     tagsNf: "",
     tagsNl: "",
     filesReqCount: 0,
@@ -418,7 +426,6 @@ export function editRecord(id) {
   };
 
   setVal('form-requisicao', item.requisicao);
-  setVal('form-af', item.af);
   setVal('form-evento', item.evento);
   setVal('form-local', item.local);
   setVal('form-descritivo', item.descritivo);
@@ -436,13 +443,16 @@ export function editRecord(id) {
 
   updatePrevisaoBanner(item.entrega);
 
+  const afList = normalizeAfArray(item);
+
   state.currentTags = {
     ficha: [...(item.fichas || [])],
     empenho: [...(item.empenhos || [])],
+    af: afList,
     nf: [...(item.notas || [])],
     nl: [...(item.nl || [])]
   };
-  ['ficha', 'empenho', 'nf', 'nl'].forEach(renderTags);
+  ['ficha', 'empenho', 'af', 'nf', 'nl'].forEach(renderTags);
 
   state.currentFiles = {
     req: item.anexosReq ? [...item.anexosReq] : [],
@@ -499,7 +509,6 @@ export function editRecord(id) {
   originalRecordData = {
     protocolo: semProtocolo ? "" : String(item.protocolo || '').trim(),
     requisicao: String(item.requisicao || '').trim(),
-    af: String(item.af || '').trim(),
     evento: String(item.evento || '').trim(),
     local: String(item.local || '').trim(),
     descritivo: String(item.descritivo || '').trim(),
@@ -509,6 +518,7 @@ export function editRecord(id) {
     cancelado: Boolean(item.cancelado),
     tagsFicha: (item.fichas || []).join(','),
     tagsEmpenho: (item.empenhos || []).join(','),
+    tagsAf: afList.join(','),
     tagsNf: (item.notas || []).join(','),
     tagsNl: (item.nl || []).join(','),
     filesReqCount: (item.anexosReq || []).length,
@@ -572,7 +582,7 @@ export async function confirmAndDeleteRecord() {
 export async function handleFormSubmit(e) {
   e.preventDefault();
 
-  ['ficha', 'empenho', 'nf', 'nl'].forEach(type => {
+  ['ficha', 'empenho', 'af', 'nf', 'nl'].forEach(type => {
     const inputEl = document.getElementById(`input-tag-${type}`);
     if (inputEl && inputEl.value.trim() !== '') {
       const val = inputEl.value.trim();
@@ -630,7 +640,8 @@ export async function handleFormSubmit(e) {
     const localVal = document.getElementById('form-local')?.value || '';
     const descritivoVal = document.getElementById('form-descritivo')?.value || '';
     const requisicaoVal = (document.getElementById('form-requisicao')?.value || '').trim();
-    const afVal = (document.getElementById('form-af')?.value || '').trim();
+    const afArray = [...state.currentTags.af];
+    const afStringVal = afArray.join(', ');
     const entregaVal = document.getElementById('form-entrega')?.value || '';
     const dataProcessoVal = document.getElementById('form-data-processo')?.value || '';
     const chkCanceladoVal = Boolean(document.getElementById('form-chk-cancelado')?.checked);
@@ -644,10 +655,11 @@ export async function handleFormSubmit(e) {
       requisicao: requisicaoVal,
       fichas: [...state.currentTags.ficha],
       empenhos: [...state.currentTags.empenho],
+      afs: afArray,
+      af: afStringVal,
       notas: [...state.currentTags.nf],
       nl: [...state.currentTags.nl],
       valor: floatValor,
-      af: afVal,
       entrega: entregaVal,
       dataProcesso: dataProcessoVal,
       ano: String(extractYearFromItem({ DATA_PROCESSO: dataProcessoVal, ENTREGA: entregaVal }) || new Date().getFullYear()),
@@ -684,7 +696,8 @@ export async function handleFormSubmit(e) {
       ID_SOLICITACAO: recordId,
       PROTOCOLO: protocoloVal,
       REQUISICAO: requisicaoVal,
-      AF_OS: afVal,
+      AF_OS: afStringVal,
+      LISTA_AF: afArray,
       EVENTO: eventoVal,
       LOCAL: localVal,
       DESCRITIVO: descritivoVal,
