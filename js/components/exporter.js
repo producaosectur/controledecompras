@@ -21,6 +21,7 @@ export function exportToExcel() {
   const excelData = dataToExport.map(item => {
     let statusInfo = getStatusInfo(item);
     let prevPagamento = calculatePaymentForecast(item.entrega) || '-';
+    let strAfs = Array.isArray(item.afs) && item.afs.length ? item.afs.join(', ') : (item.af || '');
 
     return {
       "Ano": item.ano,
@@ -29,12 +30,12 @@ export function exportToExcel() {
       "Local": item.local,
       "Descritivo": item.descritivo,
       "Requisição": item.requisicao,
-      "Ficha(s)": item.fichas.join(', '),
-      "Empenho(s)": item.empenhos.join(', '),
-      "AF/OS": item.af,
+      "Ficha(s)": (item.fichas || []).join(', '),
+      "Empenho(s)": (item.empenhos || []).join(', '),
+      "AF/OS(s)": strAfs,
       "Valor (R$)": item.valor,
-      "Nota(s) Fiscal(is)": item.notas.join(', '),
-      "Liquidação(ões) NL": item.nl.join(', '),
+      "Nota(s) Fiscal(is)": (item.notas || []).join(', '),
+      "Liquidação(ões) NL": (item.nl || []).join(', '),
       "Data Entrega": formatDateBR(item.entrega),
       "Data Processo": formatDateBR(item.dataProcesso),
       "Prev. Pagamento": prevPagamento,
@@ -49,7 +50,7 @@ export function exportToExcel() {
   const max_width = excelData.reduce((w, r) => Math.max(w, (r.Descritivo || '').length), 10);
   worksheet['!cols'] = [
     { wch: 8 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: Math.min(max_width, 50) },
-    { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 14 },
+    { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 14 },
     { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 15 }
   ];
 
