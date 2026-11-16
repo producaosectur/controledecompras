@@ -34,6 +34,7 @@ function processRawData(data) {
   const safeData = {
     fichas: Array.isArray(data?.fichas) ? data.fichas : [],
     empenhos: Array.isArray(data?.empenhos) ? data.empenhos : [],
+    afs: Array.isArray(data?.afs) ? data.afs : [],
     notasFiscais: Array.isArray(data?.notasFiscais) ? data.notasFiscais : [],
     liquidacoes: Array.isArray(data?.liquidacoes) ? data.liquidacoes : [],
     anexosReq: Array.isArray(data?.anexosReq) ? data.anexosReq : [],
@@ -62,11 +63,11 @@ function processRawData(data) {
         }
       }
 
-      let val = item.NUMERO_FICHA || item.NUMERO_EMPENHO || item.NUMERO_NF || item.NUMERO_NL;
+      let val = item.NUMERO_FICHA || item.NUMERO_EMPENHO || item.NUMERO_AF || item.NUMERO_NF || item.NUMERO_NL;
       if (!val) {
         for (let k of keys) {
           let v = String(item[k]).trim();
-          if (v && v !== String(id).trim() && !v.startsWith('FIC') && !v.startsWith('EMP') && !v.startsWith('NF') && !v.startsWith('NL')) {
+          if (v && v !== String(id).trim() && !v.startsWith('FIC') && !v.startsWith('EMP') && !v.startsWith('AF') && !v.startsWith('NF') && !v.startsWith('NL')) {
             val = v;
             break;
           }
@@ -101,6 +102,7 @@ function processRawData(data) {
 
   state.fichasMap = buildRelMap(safeData.fichas);
   state.empenhosMap = buildRelMap(safeData.empenhos);
+  state.afMap = buildRelMap(safeData.afs);
   state.notasMap = buildRelMap(safeData.notasFiscais);
   state.liquidacoesMap = buildRelMap(safeData.liquidacoes);
 
@@ -120,10 +122,18 @@ function processRawData(data) {
       reqList.push({ name: 'Anexo Requisição', url: item.ANEXO_REQUISICAO });
     }
 
-    let afList = state.anexosAfMap[solId] ? [...state.anexosAfMap[solId]] : [];
-    if (afList.length === 0 && item?.ANEXO_AF_OS) {
-      afList.push({ name: 'Anexo AF/OS', url: item.ANEXO_AF_OS });
+    let afAnexosList = state.anexosAfMap[solId] ? [...state.anexosAfMap[solId]] : [];
+    if (afAnexosList.length === 0 && item?.ANEXO_AF_OS) {
+      afAnexosList.push({ name: 'Anexo AF/OS', url: item.ANEXO_AF_OS });
     }
+
+    // Normaliza AF/OS como array (suportando tanto tabela relacional quanto string separada por vírgula)
+    let afNumbersList = Array.isArray(state.afMap[solId]) && state.afMap[solId].length > 0
+      ? [...state.afMap[solId]]
+      : String(item?.AF_OS || '')
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s && s !== '-');
 
     let yearExtracted = extractYearFromItem(item);
 
@@ -136,16 +146,17 @@ function processRawData(data) {
       requisicao: String(item?.REQUISICAO || ''),
       fichas: Array.isArray(state.fichasMap[solId]) ? state.fichasMap[solId] : [],
       empenhos: Array.isArray(state.empenhosMap[solId]) ? state.empenhosMap[solId] : [],
+      afs: afNumbersList,
       notas: Array.isArray(state.notasMap[solId]) ? state.notasMap[solId] : [],
       nl: Array.isArray(state.liquidacoesMap[solId]) ? state.liquidacoesMap[solId] : [],
       valor: parseValorNum(item?.VALOR_TOTAL),
-      af: String(item?.AF_OS || ''),
+      af: afNumbersList.join(', '),
       entrega: String(item?.ENTREGA || ''),
       dataProcesso: String(item?.DATA_PROCESSO || ''),
       ano: String(yearExtracted || ''),
       cancelado: parseBool(item?.CHK_CANCELADO),
       anexosReq: Array.isArray(reqList) ? reqList : [],
-      anexosAf: Array.isArray(afList) ? afList : [],
+      anexosAf: Array.isArray(afAnexosList) ? afAnexosList : [],
       anexosNf: Array.isArray(state.anexosNfMap[solId]) ? state.anexosNfMap[solId] : [],
       anexosNl: Array.isArray(state.anexosNlMap[solId]) ? state.anexosNlMap[solId] : []
     };
