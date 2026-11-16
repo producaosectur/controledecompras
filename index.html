@@ -76,7 +76,7 @@
             <th class="sortable" data-sort="requisicao">Req. <span class="sort-icon">↕</span></th>
             <th>Ficha</th>
             <th>Empenho(s)</th>
-            <th class="sortable" data-sort="af">AF/OS <span class="sort-icon">↕</span></th>
+            <th class="sortable" data-sort="af">AF/OS(s) <span class="sort-icon">↕</span></th>
             <th class="sortable" data-sort="valor">Valor (R$) <span class="sort-icon">↕</span></th>
             <th>N.F.(s)</th>
             <th>NL(s)</th>
@@ -194,10 +194,12 @@
           </div>
 
           <div class="relation-block">
-            <label for="form-af">AF/OS</label>
+            <label>AF/OS(s)</label>
             <div class="relation-input-group">
-              <input type="text" id="form-af" placeholder="Ex: 85">
+              <input type="text" id="input-tag-af" placeholder="Ex: 85">
+              <button type="button" class="btn-add-inline" onclick="addTag('af')">+</button>
             </div>
+            <div id="tags-af" class="tags-container"></div>
           </div>
 
           <div class="relation-block">
